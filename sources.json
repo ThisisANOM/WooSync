@@ -1,0 +1,14 @@
+[
+  {
+    "name": "Supplier One",
+    "url": "https://supplier-one.com/wp-json/wc/store/v1/products",
+    "source_id": "shz",
+    "price_multiplier": 0.98
+  },
+  {
+    "name": "Supplier Two",
+    "url": "https://supplier-two.com/wp-json/wc/store/v1/products",
+    "source_id": "sup2",
+    "price_multiplier": 1.05
+  }
+]
