@@ -6,7 +6,7 @@ This project automates the entire dropshipping workflow: it fetches products fro
 
 ---
 
-## ✨ Features & What's New in v2.0
+## ✨ Features & What's New in v2.1.0
 
 * 🌐 **Multi-Source Support** — Sync products from multiple supplier sites simultaneously without conflicts.
 * ⚡ **Continuous Automation (Daemon & Cron)** — Run in the background every X hours or integrate with Linux Cron Jobs.
@@ -191,7 +191,7 @@ __pycache__/
 
 ## 🆕 Changelog
 
-### Version 2.0.0 — Major Architecture Update
+### Version 2.1.0 — Major Architecture Update
 
 * **Single-Script / Single-Process Architecture** — Removed intermediate files (`products.json`) and synchronized directly from source to destination.
 * **Unlimited Multi-Source Support** — Added `sources.json` with per-source `source_id` and `price_multiplier`.
