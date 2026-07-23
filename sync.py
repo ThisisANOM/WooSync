@@ -145,7 +145,7 @@ def parse_category_path(link_url):
 
 
 def fetch_source_products(source_config):
-    """Fetches and normalizes all products from a single source site."""
+    """Fetches and normalizes ONLY IN-STOCK products from a single source site."""
     url = source_config["url"]
     source_id = source_config["source_id"].strip().lower()
     price_multiplier = float(source_config.get("price_multiplier", 1.0))
@@ -155,8 +155,14 @@ def fetch_source_products(source_config):
     log("INFO", f"Fetching products from Source: {source_config['name']} ({url})")
 
     while True:
-        params = {"page": page, "per_page": 100}
-        r = request("GET", url, params=params, headers={"User-Agent": "Mozilla/5.0"})
+        # فیلتر دریافت فقط محصولات موجود (In Stock)
+        params = {
+            "page": page,
+            "per_page": 100,
+            "stock_status": "instock",
+            "is_in_stock": "true"
+        }
+        r = request("GET", url, params=params, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
         if not r:
             break
         data = r.json()
@@ -164,6 +170,11 @@ def fetch_source_products(source_config):
             break
 
         for p in data:
+            # چک کردن مجدد جهت اطمینان از موجود بودن
+            is_in_stock = p.get("is_in_stock", True)
+            if not is_in_stock:
+                continue
+
             raw_sku = p.get("sku") or str(p.get("id"))
             clean_raw_sku = re.sub(r"[^a-z0-9\-]", "-", raw_sku.lower()).strip("-")
             final_sku = f"{source_id}-{clean_raw_sku}"
@@ -184,7 +195,6 @@ def fetch_source_products(source_config):
             new_sale_price = int(sale_price * price_multiplier) if sale_price > 0 else 0
 
             stock_qty = extract_stock_quantity(p)
-            is_in_stock = p.get("is_in_stock", False) and (stock_qty > 0)
 
             # Extract Category Chains
             cat_paths = []
@@ -204,7 +214,7 @@ def fetch_source_products(source_config):
                 "short_description": p.get("short_description", ""),
                 "manage_stock": True,
                 "stock_quantity": stock_qty,
-                "stock_status": "instock" if is_in_stock else "outofstock",
+                "stock_status": "instock",
                 "images": [{"src": img["src"]} for img in p.get("images", []) if img.get("src")],
                 "cat_paths": cat_paths
             }
@@ -213,7 +223,7 @@ def fetch_source_products(source_config):
         page += 1
         time.sleep(0.2)
 
-    log("INFO", f"Total products fetched from {source_config['name']}: {len(source_products)}")
+    log("INFO", f"Total in-stock products fetched from {source_config['name']}: {len(source_products)}")
     return source_products
 
 
