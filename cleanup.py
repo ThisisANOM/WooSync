@@ -4,7 +4,7 @@ import requests
 import urllib3
 from dotenv import load_dotenv
 
-
+# غیرفعال کردن هشدارهای عدم اعتبار SSL در کنسول
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # ---------------- LOAD ENVIRONMENT VARIABLES ----------------
@@ -41,20 +41,21 @@ def request(method, url, **kwargs):
 
 # ---------------- DELETE PRODUCT IMAGES FROM HOST ----------------
 def delete_product_images(image_ids):
-    """Permanently deletes images from Media Library and Host storage."""
+    """Permanently deletes images from Media Library and Host storage with detailed logging."""
     if not image_ids:
         return 0
 
     deleted_images_count = 0
-    # Construct WordPress REST API endpoint for media
     wp_base_url = DEST_BASE_URL.rsplit("/wc/", 1)[0] + "/wp/v2/media"
 
     for img_id in image_ids:
-        # force=true permanently deletes file from host storage
         del_url = f"{wp_base_url}/{img_id}?force=true"
         r = request("DELETE", del_url, auth=DEST_AUTH)
         if r:
             deleted_images_count += 1
+            print(f"  └─ [IMAGE DELETED] Media ID {img_id} permanently removed from host.")
+        else:
+            print(f"  └─ [ERROR] Failed to delete Media ID {img_id}.")
 
     return deleted_images_count
 
@@ -67,14 +68,13 @@ def delete_all_products():
     deleted_images_total = 0
 
     while True:
-        # Fetch products along with image information
         r = request("GET", f"{DEST_BASE_URL}/products", auth=DEST_AUTH, params={"per_page": 50, "_fields": "id,images"})
         if not r:
             break
 
         products = r.json()
         if not products:
-            print("No more products found.")
+            print("[INFO] No products found to delete.")
             break
 
         product_ids = []
@@ -88,25 +88,25 @@ def delete_all_products():
 
         # 1. Delete associated images from Host Storage & Media Library
         if image_ids_to_delete:
+            print(f"\n[INFO] Found {len(image_ids_to_delete)} unique images in current batch. Deleting from host...")
             img_count = delete_product_images(image_ids_to_delete)
             deleted_images_total += img_count
-            print(f"[INFO] Permanently deleted {img_count} images from host for this batch.")
 
-        # 2. Execute Batch Delete Request for Products
+        # 2. Execute Batch Force-Delete Request for Products (force=true is critical)
         payload = {"delete": product_ids}
-        del_response = request("POST", f"{DEST_BASE_URL}/products/batch", auth=DEST_AUTH, json=payload)
+        del_response = request("POST", f"{DEST_BASE_URL}/products/batch", auth=DEST_AUTH, params={"force": "true"}, json=payload)
 
         if del_response:
             deleted_count = len(product_ids)
             deleted_total += deleted_count
-            print(f"[SUCCESS] Permanently deleted batch of {deleted_count} products. Total Products: {deleted_total}")
+            print(f"[SUCCESS] Permanently deleted batch of {deleted_count} products (IDs: {product_ids}). Total: {deleted_total}")
         else:
             print("[ERROR] Failed to delete current batch of products.")
             break
 
         time.sleep(0.5)
 
-    print(f"Products cleanup finished. Total Products Deleted: {deleted_total} | Total Images Deleted: {deleted_images_total}")
+    print(f"\nProducts cleanup finished. Total Products Deleted: {deleted_total} | Total Images Deleted: {deleted_images_total}")
 
 
 # ---------------- BATCH DELETE CATEGORIES ----------------
@@ -116,32 +116,32 @@ def delete_all_categories():
     deleted_total = 0
 
     while True:
-        r = request("GET", f"{DEST_BASE_URL}/products/categories", auth=DEST_AUTH, params={"per_page": 50, "_fields": "id,slug"})
+        r = request("GET", f"{DEST_BASE_URL}/products/categories", auth=DEST_AUTH, params={"per_page": 50, "_fields": "id,slug,name"})
         if not r:
             break
 
         categories = r.json()
-        # Exclude 'uncategorized' default category
         cat_ids = [c["id"] for c in categories if c.get("slug") != "uncategorized"]
 
         if not cat_ids:
-            print("No more custom categories found.")
+            print("[INFO] No custom categories found to delete.")
             break
 
+        # Execute Batch Force-Delete Request for Categories (force=true is required by WooCommerce API)
         payload = {"delete": cat_ids}
-        del_response = request("POST", f"{DEST_BASE_URL}/products/categories/batch", auth=DEST_AUTH, json=payload)
+        del_response = request("POST", f"{DEST_BASE_URL}/products/categories/batch", auth=DEST_AUTH, params={"force": "true"}, json=payload)
 
         if del_response:
             deleted_count = len(cat_ids)
             deleted_total += deleted_count
-            print(f"[SUCCESS] Permanently deleted batch of {deleted_count} categories. Total: {deleted_total}")
+            print(f"[SUCCESS] Permanently deleted batch of {deleted_count} categories (IDs: {cat_ids}). Total: {deleted_total}")
         else:
             print("[ERROR] Failed to delete current batch of categories.")
             break
 
         time.sleep(0.5)
 
-    print(f"Categories cleanup finished. Total deleted: {deleted_total}")
+    print(f"Categories cleanup finished. Total Categories Deleted: {deleted_total}")
 
 
 # ---------------- RESET HASH CACHE ----------------
